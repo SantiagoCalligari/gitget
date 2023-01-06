@@ -18,14 +18,23 @@ fn make_url(git_user: &String) -> String {
 async fn json_results(url:String) -> serde_json::Value {
     let results:&str = &unwrap_or_return!(get_github_repos(url).await)[..];
     let json_results: serde_json::Value = 
-        serde_json::from_str(results).expect("JSON was not well-formated");
+        serde_json::from_str(results).unwrap();
     json_results
+}
+
+fn show_results(json_results: serde_json::Value) -> () {
+    for item in json_results.as_array().unwrap().iter() {
+        let name = item["html_url"].as_str().unwrap();
+        let description = item["description"].as_str().unwrap_or_else(|| "no description");
+        println!("{} \n {} \n",name, description)
+    }
 }
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let url = make_url(&args[1]);
-    println!("{:#?}", json_results(url).await);
+    let json_results = json_results(url).await;
+    show_results(json_results);
 }
 
 async fn get_github_repos(url: String) -> Result<String, Box<dyn std::error::Error>> {
