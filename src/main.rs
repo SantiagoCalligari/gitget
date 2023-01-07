@@ -58,8 +58,10 @@ async fn main() {
     let args: Vec<String> = env::args().collect();
     let url = if check_args(&args) { make_url(&args[1])} 
         else { show_usage(); String::from("")};
-    let json_results = json_results(url).await;
-    show_results(json_results, take_limit(args));
+    if !(url == String::from("")) {
+        let json_results = json_results(url).await;
+        show_results(json_results, take_limit(args));
+    }
 }
 
 async fn get_github_repos(url: String) -> Result<String, Box<dyn std::error::Error>> {
