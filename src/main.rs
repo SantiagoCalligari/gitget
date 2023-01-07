@@ -1,5 +1,4 @@
-use std::args;
-use std::collections::HashSet;
+use std::env;
 
 macro_rules! unwrap_or_return {
     ( $e:expr ) => {
@@ -16,19 +15,21 @@ fn make_url(git_user: &String) -> String {
     url.push_str("/repos");
     url
 }
-
 async fn json_results(url:String) -> serde_json::Value {
     let results:&str = &unwrap_or_return!(get_github_repos(url).await)[..];
     let json_results: serde_json::Value = 
         serde_json::from_str(results).unwrap();
     json_results
+
 }
 
-fn show_results(json_results: serde_json::Value) -> () {
-    for item in json_results.as_array().unwrap().iter() {
-        let name = item["html_url"].as_str().unwrap();
-        let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
-        println!("{} \n {} \n",name, description)
+fn show_results(json_results: serde_json::Value, limit:u32){
+    for (i,item) in json_results.as_array().unwrap().iter().enumerate() {
+        if (i as u32)<limit {
+            let name = item["html_url"].as_str().unwrap();
+            let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
+            println!("{} \n {} \n",name, description);
+        }
     }
 }
 
@@ -40,18 +41,13 @@ fn show_usage() {
     println!("\nusage: gitget [options] <githubUsername>
 [options]
 {{-L --limit}}
-{{-V --version}}
 ");
 }
 
-fn show_version() {
-    println!("gitget version: 1.0");
-} 
-
 fn take_limit(args: Vec<String>) -> u32{
     for (i, element) in args.iter().enumerate() {
-        if element == "-L" {
-            return args[i+1];
+        if element == "-L" || element == "--limit" {
+            return args[i+1].parse().unwrap();
         }
     }
     30
@@ -59,11 +55,11 @@ fn take_limit(args: Vec<String>) -> u32{
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = args::args().collect();
+    let args: Vec<String> = env::args().collect();
     let url = if check_args(&args) { make_url(&args[1])} 
         else { show_usage(); String::from("")};
-    println!(take_limit(args))
-    //let json_results = json_results(url).await;
+    let json_results = json_results(url).await;
+    show_results(json_results, take_limit(args));
 }
 
 async fn get_github_repos(url: String) -> Result<String, Box<dyn std::error::Error>> {
