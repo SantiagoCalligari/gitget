@@ -1,4 +1,5 @@
 use std::env;
+use colored::Colorize;
 
 macro_rules! unwrap_or_return {
     ( $e:expr ) => {
@@ -28,7 +29,7 @@ fn show_results(json_results: serde_json::Value, limit:u32){
         if (i as u32)<limit {
             let name = item["html_url"].as_str().unwrap();
             let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
-            println!("{} \n {} \n",name, description);
+            println!("{} \n└─{} \n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
         }
     }
 }
