@@ -12,10 +12,12 @@ macro_rules! unwrap_or_return {
 
 fn make_url(git_user: &String) -> String {
     let mut url:String = String::from("https://api.github.com/users/");
+    println!("{}\n │",format!("{}",git_user).magenta());
     url.push_str(git_user);
     url.push_str("/repos");
     url
 }
+
 async fn json_results(url:String) -> serde_json::Value {
     let results:&str = &unwrap_or_return!(get_github_repos(url).await)[..];
     let json_results: serde_json::Value = 
@@ -25,11 +27,17 @@ async fn json_results(url:String) -> serde_json::Value {
 }
 
 fn show_results(json_results: serde_json::Value, limit:u32){
+    let limit = if limit==0 {json_results.as_array().unwrap().len() as u32} else {4};
+    let last = limit-1;
     for (i,item) in json_results.as_array().unwrap().iter().enumerate() {
         if (i as u32)<limit {
             let name = item["html_url"].as_str().unwrap();
             let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
-            println!("{} \n└─{} \n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
+            if (i as u32) != last{
+                println!(" ├┬{}\n │└─{}\n │",format!("{}",name).blue(), format!("{}",description).bright_cyan());
+            }else{
+                println!(" └┬{}\n  └─{}\n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
+            }
         }
     }
 }
@@ -51,7 +59,7 @@ fn take_limit(args: Vec<String>) -> u32{
             return args[i+1].parse().unwrap();
         }
     }
-    30
+    0
 }
 
 #[tokio::main]
