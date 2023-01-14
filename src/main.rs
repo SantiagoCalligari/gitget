@@ -17,7 +17,13 @@ fn make_url(git_user: &str) -> String {
     url.push_str("/repos");
     url
 }
-
+fn make_fork_url(repo:&str) -> String {
+    println!("{}\n│",format!("{}",repo).magenta());
+    let mut url = String::from("https://api.github.com/repos/");
+    url.push_str(&repo);
+    url.push_str("/forks");
+    url
+}
 async fn json_results(url:String) -> serde_json::Value {
     let results:&str = &unwrap_or_return!(get_api_info(url).await)[..];
     let json_results: serde_json::Value = 
@@ -26,12 +32,21 @@ async fn json_results(url:String) -> serde_json::Value {
 
 }
 
-async fn fork(repo:String) {
-    let mut url = String::from("https://api.github.com/repos/");
-    url.push_str(&repo);
-    url.push_str("/forks");
-    let fork_json_results = json_results(url).await;
-    println!("{:#?}", fork_json_results);
+
+fn fork(json_results: serde_json::Value, limit:i32) {
+    let limit = if limit==-1 {json_results.as_array().unwrap().len() as i32} else {limit};
+    let last = limit-1;
+
+    for (i,item) in json_results.as_array().unwrap().iter().enumerate() {
+        if (i as i32)<limit {
+            let fullname = item["full_name"].as_str().unwrap();
+            if (i as i32) != last{
+                println!("├─{}\n│",format!("{}",fullname).bright_cyan());
+            }else{
+                println!("└─{}\n",format!("{}",fullname).bright_cyan());
+            }
+        }
+    }
 }
 
 fn show_results(json_results: serde_json::Value, limit:i32){
@@ -52,7 +67,6 @@ fn show_results(json_results: serde_json::Value, limit:i32){
 
 #[tokio::main]
 async fn main() {
-
     let matches = App::new("gitget")
         .version("1.0")
         .author("Santiago Calligari. <santiago@calligari.ar>")
@@ -72,19 +86,15 @@ async fn main() {
 
     if repo_user.contains("/"){
         println!("repo: {:?}, limit: {}",repo_user , limit);
+        let url = make_fork_url(repo_user);
+        let json_results = json_results(url).await;
+        fork(json_results, limit);
     }else{
-        println!("user: {:?}, limit: {}",repo_user , limit);
         let url = make_url(&repo_user);
         let json_results = json_results(url).await;
         show_results(json_results, limit);
     }
 
-    /*let url = if check_args(&args) { make_url(&args[1])} 
-        else { show_usage(); String::from("")};
-    if !(url == String::from("")) {
-        let json_results = json_results(url).await;
-        show_results(json_results, take_limit(args));
-    }*/
 }
 
 
