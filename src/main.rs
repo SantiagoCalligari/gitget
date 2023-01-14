@@ -1,5 +1,5 @@
-use std::env;
 use colored::Colorize;
+use clap::{App, Arg};
 
 macro_rules! unwrap_or_return {
     ( $e:expr ) => {
@@ -10,7 +10,7 @@ macro_rules! unwrap_or_return {
     }
 }
 
-fn make_url(git_user: &String) -> String {
+fn make_url(git_user: &str) -> String {
     let mut url:String = String::from("https://api.github.com/users/");
     println!("{}\n│",format!("{}",git_user).magenta());
     url.push_str(git_user);
@@ -26,14 +26,22 @@ async fn json_results(url:String) -> serde_json::Value {
 
 }
 
-fn show_results(json_results: serde_json::Value, limit:u32){
-    let limit = if limit==0 {json_results.as_array().unwrap().len() as u32} else {4};
+async fn fork(repo:String) {
+    let mut url = String::from("https://api.github.com/repos/");
+    url.push_str(&repo);
+    url.push_str("/forks");
+    let fork_json_results = json_results(url).await;
+    println!("{:#?}", fork_json_results);
+}
+
+fn show_results(json_results: serde_json::Value, limit:i32){
+    let limit = if limit==-1 {json_results.as_array().unwrap().len() as i32} else {limit};
     let last = limit-1;
     for (i,item) in json_results.as_array().unwrap().iter().enumerate() {
-        if (i as u32)<limit {
+        if (i as i32)<limit {
             let name = item["html_url"].as_str().unwrap();
             let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
-            if (i as u32) != last{
+            if (i as i32) != last{
                 println!("├┬{}\n│└─{}\n│",format!("{}",name).blue(), format!("{}",description).bright_cyan());
             }else{
                 println!("└┬{}\n └─{}\n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
@@ -42,41 +50,41 @@ fn show_results(json_results: serde_json::Value, limit:u32){
     }
 }
 
-fn check_args(args: &Vec<String>) -> bool {
-    args.len() > 1
-}
-
-fn show_usage() {
-    println!("\nusage: gitget [options] <githubUsername>
-[options]
-{{-L --limit}}
-");
-}
-
-fn take_limit(args: Vec<String>) -> u32{
-    for (i, element) in args.iter().enumerate() {
-        if element == "-L" || element == "--limit" {
-            return args[i+1].parse().unwrap();
-        }
-    }
-    0
-}
-
-async fn fork(repo:String) {
-
-}
-
-
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = env::args().collect();
-    let url = if check_args(&args) { make_url(&args[1])} 
+
+    let matches = App::new("gitget")
+        .version("1.0")
+        .author("Santiago Calligari. <santiago@calligari.ar>")
+        .about("Shows all repositories or repositories forks in GitHub and prints the results")
+        .arg(Arg::with_name("repo_user")
+             .required(true)
+             .help("You need to give the repo that want to see the forks or the github user to see their repos"))
+        .arg(Arg::with_name("limit")
+             .short("l")
+             .long("limit")
+             .value_name("LIMIT")
+             .help("Sets the limit of the number of results"))
+        .get_matches();
+
+    let repo_user = matches.value_of("repo_user").unwrap();
+    let limit:i32 = matches.value_of("limit").unwrap_or("").parse().unwrap_or(-1);
+
+    if repo_user.contains("/"){
+        println!("repo: {:?}, limit: {}",repo_user , limit);
+    }else{
+        println!("user: {:?}, limit: {}",repo_user , limit);
+        let url = make_url(&repo_user);
+        let json_results = json_results(url).await;
+        show_results(json_results, limit);
+    }
+
+    /*let url = if check_args(&args) { make_url(&args[1])} 
         else { show_usage(); String::from("")};
-    
     if !(url == String::from("")) {
         let json_results = json_results(url).await;
         show_results(json_results, take_limit(args));
-    }
+    }*/
 }
 
 
