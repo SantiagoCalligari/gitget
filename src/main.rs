@@ -12,14 +12,14 @@ macro_rules! unwrap_or_return {
 
 fn make_url(git_user: &String) -> String {
     let mut url:String = String::from("https://api.github.com/users/");
-    println!("{}\n │",format!("{}",git_user).magenta());
+    println!("{}\n│",format!("{}",git_user).magenta());
     url.push_str(git_user);
     url.push_str("/repos");
     url
 }
 
 async fn json_results(url:String) -> serde_json::Value {
-    let results:&str = &unwrap_or_return!(get_github_repos(url).await)[..];
+    let results:&str = &unwrap_or_return!(get_api_info(url).await)[..];
     let json_results: serde_json::Value = 
         serde_json::from_str(results).unwrap();
     json_results
@@ -34,9 +34,9 @@ fn show_results(json_results: serde_json::Value, limit:u32){
             let name = item["html_url"].as_str().unwrap();
             let description = item["description"].as_str().unwrap_or_else(|| "This repo has no description");
             if (i as u32) != last{
-                println!(" ├┬{}\n │└─{}\n │",format!("{}",name).blue(), format!("{}",description).bright_cyan());
+                println!("├┬{}\n│└─{}\n│",format!("{}",name).blue(), format!("{}",description).bright_cyan());
             }else{
-                println!(" └┬{}\n  └─{}\n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
+                println!("└┬{}\n └─{}\n",format!("{}",name).blue(), format!("{}",description).bright_cyan());
             }
         }
     }
@@ -62,18 +62,25 @@ fn take_limit(args: Vec<String>) -> u32{
     0
 }
 
+async fn fork(repo:String) {
+
+}
+
+
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let url = if check_args(&args) { make_url(&args[1])} 
         else { show_usage(); String::from("")};
+    
     if !(url == String::from("")) {
         let json_results = json_results(url).await;
         show_results(json_results, take_limit(args));
     }
 }
 
-async fn get_github_repos(url: String) -> Result<String, Box<dyn std::error::Error>> {
+
+async fn get_api_info(url: String) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     let body = client.get(url).header("User-Agent", "GitGet/0.1")
         .send()
